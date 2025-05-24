@@ -19,9 +19,10 @@ axiosInstance.interceptors.request.use(
     const token = localStorage.getItem('token')
     
     // Уменьшаем количество логов, чтобы не засорять консоль
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[REQUEST] ${config.method?.toUpperCase()} ${config.url}`)
-    }
+    console.log(`[REQUEST] ${config.method?.toUpperCase()} ${config.url}`, {
+      headers: config.headers,
+      data: config.data
+    })
     
     // Устанавливаем заголовок авторизации, если токен есть
     if (token) {
@@ -39,20 +40,18 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => {
     // Минимизируем логи, только для разработки
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`[RESPONSE] ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`)
-    }
+    console.log(`[RESPONSE] ${response.config.method?.toUpperCase()} ${response.config.url} - ${response.status}`, {
+      data: response.data,
+      headers: response.headers
+    })
     return response
   },
   (error) => {
     // Логируем только важную информацию об ошибке
-    if (process.env.NODE_ENV === 'development') {
-      console.error(`[ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status || 'Network Error'}`)
-      
-      if (error.response?.data) {
-        console.error('Error details:', error.response.data)
-      }
-    }
+    console.error(`[ERROR] ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${error.response?.status || 'Network Error'}`, {
+      data: error.response?.data,
+      headers: error.response?.headers
+    })
 
     // Обработка различных ошибок
     if (error.response) {

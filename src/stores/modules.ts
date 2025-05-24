@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import axiosInstance from '@/utils/axios'
 import { useAuthStore } from './auth'
 import { ElMessage } from 'element-plus'
-import { ref, computed, watch, toRaw } from 'vue'
+import { ref, computed } from 'vue'
 
 // Строгая типизация словаря
 export interface Dictionary {
@@ -21,26 +21,20 @@ export interface Module {
   username: string
   is_liked: boolean
   rating: number
-}
-
-// Состояние модулей
-interface ModulesState {
-  modules: Module[]
-  selectedModules: number[]
-  currentModule: Module | null
+  likes_count: number
 }
 
 // Создание хранилища с улучшенной обработкой ошибок и типизацией
 export const useModulesStore = defineStore('modules', () => {
-  // Основные состояния
+  // Состояния с улучшенной типизацией
   const modules = ref<Module[]>([])
-  const selectedModules = ref<number[]>([])
+  const selectedModules = ref<number[]>(JSON.parse(localStorage.getItem('selectedModules') || '[]'))
   const currentModule = ref<Module | null>(null)
   const isLoading = ref<boolean>(false)
   const lastError = ref<string | null>(null)
 
-  // Добавим вычисляемое свойство для публичных модулей
-  const publicModules = computed(() => 
+  // Оптимизированные вычисляемые свойства
+  const publicModules = computed<Module[]>(() => 
     modules.value.filter(m => m.is_public)
   )
 
@@ -249,19 +243,15 @@ export const useModulesStore = defineStore('modules', () => {
 
   // Функция для валидации словаря
   function validateDictionary(dictionary: Dictionary): Dictionary {
-    const result: Dictionary = {}
-    
-    // Обрабатываем только пары, где есть и ключ и значение
-    Object.entries(dictionary).forEach(([key, value]) => {
+    return Object.entries(dictionary).reduce((acc: Dictionary, [key, value]) => {
       const trimmedKey = String(key).trim()
       const trimmedValue = String(value).trim()
       
       if (trimmedKey && trimmedValue) {
-        result[trimmedKey] = trimmedValue
+        acc[trimmedKey] = trimmedValue
       }
-    })
-    
-    return result
+      return acc
+    }, {})
   }
 
   // Добавляем функцию для получения конкретного модуля по ID
@@ -270,17 +260,47 @@ export const useModulesStore = defineStore('modules', () => {
   }
 
   // Работа с выбранными модулями
-  function toggleModuleSelection(moduleId: number) {
-    const index = selectedModules.value.indexOf(moduleId)
-    if (index === -1) {
-      selectedModules.value = [...selectedModules.value, moduleId]
-    } else {
-      selectedModules.value = selectedModules.value.filter(id => id !== moduleId)
-    }
+  function toggleModuleSelection(moduleId: number): void {
+    selectedModules.value = selectedModules.value.includes(moduleId)
+      ? selectedModules.value.filter(id => id !== moduleId)
+      : [...selectedModules.value, moduleId]
+    
+    // Сохраняем в localStorage
+    localStorage.setItem('selectedModules', JSON.stringify(selectedModules.value))
   }
 
   function clearSelection() {
     selectedModules.value = []
+    // Очищаем localStorage
+    localStorage.removeItem('selectedModules')
+  }
+
+  // Добавляем функцию для переключения лайка
+  async function toggleLike(moduleId: number) {
+    try {
+      const response = await axiosInstance.post(`/api/v1/modules/${moduleId}/toggle_like/`)
+      
+      if (response.status === 200) {
+        // Обновляем состояние лайка и рейтинга в локальном хранилище
+        modules.value = modules.value.map(module => {
+          if (module.id === moduleId) {
+            const newIsLiked = !module.is_liked
+            return { 
+              ...module, 
+              is_liked: newIsLiked,
+              rating: newIsLiked ? module.rating + 1 : module.rating - 1
+            }
+          }
+          return module
+        })
+        return true
+      }
+      return false
+    } catch (error: any) {
+      console.error('Toggle like error:', error)
+      ElMessage.error(error.response?.data?.detail || 'Ошибка при изменении лайка')
+      return false
+    }
   }
 
   // Функция генерации темы (оставляем как есть, так как она объемная)
@@ -376,50 +396,21 @@ export const useModulesStore = defineStore('modules', () => {
     }
   }
 
-  // Добавляем функцию для переключения лайка
-  async function toggleLike(moduleId: number) {
-    try {
-      const response = await axiosInstance.post(`/api/v1/modules/${moduleId}/toggle_like/`)
-      
-      if (response.status === 200) {
-        // Обновляем состояние лайка и рейтинга в локальном хранилище
-        modules.value = modules.value.map(module => {
-          if (module.id === moduleId) {
-            const newIsLiked = !module.is_liked
-            return { 
-              ...module, 
-              is_liked: newIsLiked,
-              rating: newIsLiked ? module.rating + 1 : module.rating - 1
-            }
-          }
-          return module
-        })
-        return true
-      }
-      return false
-    } catch (error: any) {
-      console.error('Toggle like error:', error)
-      ElMessage.error(error.response?.data?.detail || 'Ошибка при изменении лайка')
-      return false
-    }
-  }
-
   return {
     modules,
-    publicModules,
     selectedModules,
     currentModule,
     isLoading,
     lastError,
+    publicModules,
     fetchModules,
     createModule,
     updateModule,
     deleteModule,
-    generateTheme,
+    getModuleById,
     toggleModuleSelection,
     clearSelection,
-    getModuleById,
-    validateDictionary,
-    toggleLike
+    toggleLike,
+    generateTheme
   }
 }) 
