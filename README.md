@@ -1,6 +1,6 @@
-# Qizlet Revival
+# lexico
 
-Современное веб-приложение для изучения слов и терминов, вдохновленное Quizlet. Разработано с использованием Vue 3, Element Plus и современных веб-технологий.
+Современное веб-приложение для изучения слов и терминов. Разработано с использованием Vue 3, Element Plus и современных веб-технологий.
 
 ## Возможности
 
@@ -23,10 +23,10 @@
 
 ```bash
 # Клонирование репозитория
-git clone https://github.com/your-username/qizlet-revival.git
+git clone https://github.com/your-username/lexico.git
 
 # Переход в директорию проекта
-cd qizlet-revival/frontend
+cd lexico/frontend
 
 # Установка зависимостей
 npm install
